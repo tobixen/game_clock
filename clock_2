@@ -1,0 +1,323 @@
+import sys
+import termios
+import tty
+import select
+import time
+print("Made by Samuel Brox")
+print("Warning: The version is in development. Some features may not do what is expected, however it isn't so problematic and could be fixed pretty easily.")
+print("WARNING: THIS PROGRAM WILL ONLY WORK IF YOUR TERMINAL THAT YOU RUN THIS ON SUPPORTS ANSI ESCAPE CODES.")
+print("Because of the program using ANSI escape codes and prints spaces to clear, it also would not work if your font is to big or there is too little space.")
+print("If it doesn't work, I recommend running version 1 of this program (Game_clock).")
+print('After the timer has started, and you wish to quit, press "q". If someone lost, but not on time, press "t" and write in the name of the person who lost. If you want to cancel this, write in "cancel". Equal time means everyone gets the same time and increment. Unfortunately, different Additional Time for each player is not implemented to the clock. In "Time: " enter first minutes, than a colon (":"), and then seconds. In "Additional time: " type first the time, then period (". "), and then type the number of the moves you want additional time on, seperating the moves by a comma (", ").')
+
+equal_time_input = input("Equal time(default = yes): ")
+equal_time = equal_time_input in ("yes", "y", "ye", "es", "")
+
+names_for_players_input = input("Names for players(default = no): ")
+names_for_players = names_for_players_input in ("yes", "y", "ye", "es")
+
+def round_down(n:int):#a half from .5 if it's odd
+    try:
+        if n % 2 == 1:
+            raise ValueError()
+        spaces = n / 2
+    except ValueError:
+        spaces = n / 2 - 0.5
+    spaces = round(spaces)
+    return spaces
+
+# Waits 1 second for something to be pressed
+def getch(timeout=None):
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    try:
+        tty.setraw(sys.stdin.fileno())
+        if timeout is not None:
+            rlist, _, _ = select.select([sys.stdin], [], [], timeout)
+            if not rlist:
+                return None
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+    return ch
+
+class CancellationException(Exception):
+    pass
+
+# Converts into seconds
+def seconds(string:str):
+    dictionary = {}
+    if ":" in string:
+        parts = string.split(":")
+        only_min = False
+    elif "." in string:
+        parts = string.split(".")
+        only_min = False
+    elif " " in string:
+        parts = string.split(" ")
+        only_min = False
+    else:
+        only_min = True
+    if only_min == True:
+        dictionary["min"] = 0
+        dictionary["sec"] = int(string)
+    else:
+        dictionary["min"] = int(parts[0])
+        dictionary["sec"] = int(parts[1])
+    return dictionary["min"] * 60 + dictionary["sec"]
+
+def clockd(wassec):
+    cl_tuple = divmod(wassec, 60)
+    cl = []
+    cl.append(cl_tuple[0])
+    cl.append(cl_tuple[1])
+    cl[1] = round(cl[1])
+    cl[0] = round(cl[0])
+    if cl[1] < 10:
+        sec = "0" + str(cl[1])
+    else:
+        sec = str(cl[1])
+    return str(cl[0]) + ":" + sec
+
+def split_atm(string:str):
+    if "," in string:
+        parts_copy = string.split(",")
+    else:
+        parts_copy = [string]
+    victim = parts_copy[0]
+    parts_copy.remove(parts_copy[0])
+    parts = victim.split(".")
+    parts[1] = int(parts[1])
+    for item in parts_copy:
+        item = int(item)
+        parts.append(item)
+    return parts
+while True:
+    try:
+        players = int(input("Players: "))
+        if players == 0:
+            raise ValueError()
+    except ValueError:
+        print("ValueError: You need to have at least 1 player.")
+    else:
+        break
+
+SinglePlayer = players == 1
+
+try:
+    atm = split_atm(string=input("Additional time: ")) # Additional Time Moves
+    at = seconds(atm[0]) # Additional Time
+    atm.remove(atm[0])
+    atmin = True
+# No Additional Time
+except ValueError:
+    atmin = False
+except IndexError:
+    atmin = False
+
+player_names = []
+atime = [] # The time each player has
+increment = []
+player = 1
+
+# The method to take input
+while True:
+    if equal_time == False:
+        while player <= players:
+            if names_for_players == True:
+                player_names.append(input("Name of player" + str(player) + ": ").lower())
+            else:
+                player_names.append("player " + str(player))
+            try:
+                atime.append(seconds(input("Time: ")))
+                if atime[player - 1] == 0:
+                    raise CancellationException()
+            except CancellationException:
+                print(player_names[player - 1].upper() + " LOST ON TIME    - - - - - - -")
+                player_names.remove(player_names[player - 1])
+                players -= 1
+            except ValueError:
+                print("ValueError: The countdown cannot run without a set time to count down from.")
+            else:
+                try:
+                    increment.append(seconds(input("Increment: ")))
+                except ValueError:
+                    increment.append(0)
+                player += 1
+    if players == 0:
+        print("You need to have at least 1 player. Too many players is also not recommended.")
+    else:
+        break
+
+if equal_time == True:
+    while True:
+        try:
+            t = seconds(input("Time: "))
+            if t == 0:
+                raise ValueError()
+        except ValueError:
+            print("ValueError: The countdown cannot run without a set time to count down from.")
+        else:
+            break
+    try:
+        incr = seconds(input("Increment: "))
+    except ValueError:
+        incr = 0
+    while player <= players:
+        if names_for_players == True:
+            player_names.append(input("Name of player" + str(player) + ": ").lower())
+        else:
+            player_names.append("player " + str(player))
+        atime.append(t)
+        increment.append(incr)
+        player += 1
+move = 1
+
+def clockd_two(wassec):
+    tuple_cl = divmod(wassec, 60)
+    cl = []
+    cl.append(tuple_cl[0])
+    cl.append(tuple_cl[1])
+    boolean = wassec > 20
+    if boolean == True:
+        cl[1] = round(cl[1])
+    if boolean == False:
+        cl[1] = round(cl[1], 2)
+    cl[0] = round(cl[0])
+    if cl[1] < 10:
+        sec = "0" + str(cl[1])
+    else:
+        sec = str(cl[1])
+    if sec == "60":
+        sec = "00"
+        cl[0] += 1
+    if wassec < 0:
+        return "0:00.0"
+    else:
+        return str(cl[0]) + ":" + sec
+
+def print_clocks():
+    for o in range(players ):
+        print(player_names[o].title() + "  |  " + clockd_two(atime[o]) + "  ")
+player = 0
+print()
+while True:
+    # How to display the time
+    if atime[player] > 20:
+        timeout_v = 1
+    elif atime[player] <= 20:
+        timeout_v = 0.1
+    ch = getch(timeout=timeout_v)
+    # Special buttons
+    if ch == "q":
+        for o in range(players):
+            print("\033[B", end="")
+        print("\033[B", end="")
+        print("\033[B", end="")
+        print('Press the space bar to continue, "c" to cancel')
+        tty.setcbreak(sys.stdin)
+        key = None
+        while key not in (" ", "c"):
+            key = sys.stdin.read(1)
+            if key == "c":
+                print("\033[A", end="")
+                print("                                                          ")
+                for o in range(players + 3):
+                    print("\033[A", end="")
+            if key == " ":
+                sys.exit("KeyboardInterrupt")
+    if ch == "t":
+        for o in range(players):
+            print("\033[B", end="")
+        print("\033[B", end="")
+        print("\033[B", end="")
+        while True:
+            victim_name = input("Who lost: ").lower()
+            try:
+                if victim_name == "cancel":
+                    raise CancellationException()
+                victim = player_names.index(victim_name)
+                atime.remove(atime[victim])
+                player_names.remove(player_names[victim])
+                players -= 1
+                if players == 1:#the one remaining wins
+                    if player == players:
+                        player = 0
+                    print(player_names[player].upper() + " WON     - - - - - - - - - - -")
+                    print()
+                    sys.exit()
+                else:
+                    ch = None
+                    for o in range(players + 3):
+                        print("\033[A", end="")
+                    break
+            except CancellationException:
+                ch = None
+                for o in range(players + 3):
+                    print("\033[A", end="")
+                print("                ")
+                break
+            except ValueError:
+                o = 6
+                while o != 0:
+                    print('No such player. To cancel type "cancel" ' + str(o))
+                    print("\033[A", end="")
+                    time.sleep(1)
+                    o -= 1
+                print("                                         ")
+                print("\033[A", end="")
+                print("\033[A", end="")
+    if ch is None:#the clock continues
+        if player == players:
+            player = 0
+        print("\033[A", end="")
+        print_clocks()
+        print(player_names[player].upper() + "                      ")
+        print("____________                      ")
+        print(clockd_two(atime[player]) + "                      ")
+        for o in range(players):
+            print("\033[A", end="")
+        print("\033[A", end="")
+        print("\033[A", end="")
+        if atime[player] < 0:#the game is lost
+            if SinglePlayer == True:
+                print(player_names[player].upper() + " LOST ON TIME    - - - - - - -     ")
+                print("\033[B", end="")
+                print("\033[B", end="")
+                sys.exit()
+            else:
+                for o in range(players - 1):
+                    print("\033[B", end="")
+                print(player_names[player].upper() + " LOST ON TIME    - - - - - - -        ")
+                print("\033[B", end="")
+                atime.remove(atime[player])
+                player_names.remove(player_names[player])
+                players -= 1
+                if player == players:
+                    player = 0
+                if players == 1:#the one remaining wins
+                    print(player_names[player].upper() + " WON     - - - - - - - - - - -")
+                    print()
+                    sys.exit()
+                else:
+                    print("                                ")
+                    time.sleep(4)
+                    print("\033[A", end="")
+                    print("\033[A", end="")
+                    print("\033[A", end="")
+                    for o in range(players):
+                        print("\033[A", end="")
+        else:
+            atime[player] -= timeout_v
+    else:#pass the turn
+        atime[player] += increment[player]
+        player += 1
+        if player == players:
+            move += 1
+            player = 0
+            if atmin == True:
+                if move - 1 in atm:
+                    thing = 0
+                    while thing < players:
+                        atime[thing] += at
+                        thing += 1
