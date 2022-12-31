@@ -198,7 +198,7 @@ def clockd_two(wassec):
 
 def print_clocks():
     for o in range(players ):
-        print(player_names[o].title() + "  |  " + clockd_two(atime[o]) + "  ")
+        print(f"{player_names[o].title():14} | {clockd_two(atime[o])}  ")
 player = 0
 print()
 while True:
